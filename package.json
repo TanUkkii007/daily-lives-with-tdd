@@ -1,0 +1,29 @@
+{
+  "name": "daily-lives-with-tdd",
+  "version": "1.0.0",
+  "description": "",
+  "main": "gulpfile.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TanUkkii007/daily-lives-with-tdd.git"
+  },
+  "author": "Yusuke Yasuda",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/TanUkkii007/daily-lives-with-tdd/issues"
+  },
+  "homepage": "https://github.com/TanUkkii007/daily-lives-with-tdd",
+  "devDependencies": {
+    "browserify": "^9.0.3",
+    "gulp": "^3.8.11",
+    "jasmine-core": "^2.2.0",
+    "karma": "^0.12.31",
+    "karma-browserify": "^4.0.0",
+    "karma-chrome-launcher": "^0.1.7",
+    "karma-jasmine": "^0.3.5",
+    "karma-spec-reporter": "0.0.16"
+  }
+}
