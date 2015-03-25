@@ -233,24 +233,160 @@ describe('06. trim(string)', function() {
 
 ## この関数、長すぎて何やってるか全然分かんない
 
-### テストコードが長くなりすぎるのなら、複数の処理に分ける
+### 07. テストコードが長くなりすぎるのなら、複数の処理に分ける
 
+下のコードはNode.jsのutil.format関数のコードだ。format('Today is %d/%d/%d %s.', 2015, 3, 28, 'Sat')の結果は'Today is 2015/3/28 Sat.'になる。文字列を整形する関数だ。ただ少し長いので、何をやっているのかは把握しずらい。
+
+```js
+function format(f) {
+    var formatRegExp = /%[sdj%]/g;
+    if (typeof f !== 'string') {
+      var objects = [];
+      for (var i = 0; i < arguments.length; i++) {
+        objects.push(String(arguments[i]));
+      }
+      return objects.join(' ');
+    }
+
+    var i = 1;
+    var args = arguments;
+    var len = args.length;
+    var str = String(f).replace(formatRegExp, function(x) {
+      if (x === '%%') return '%';
+      if (i >= len) return x;
+      switch (x) {
+        case '%s': return String(args[i++]);
+        case '%d': return Number(args[i++]);
+        case '%j':
+          try {
+            return JSON.stringify(args[i++]);
+          } catch (_) {
+            return '[Circular]';
+          }
+        default:
+          return x;
+      }
+    });
+    for (var x = args[i]; i < len; x = args[++i]) {
+      str += ' ' + x;
+    }
+    return str;
+  }
+
+```
+format関数のテストを書くとこんな感じになる。format関数がやるべき処理が多いので、テストも多くなっている。
+
+
+```
+describe('07. format', function() {
+  it('format("%s")は%sを文字列に置換する', function() {
+    expect(format('%s', 'abc')).toBe('abc');
+  });
+
+  it('format(%d)は%dを数字に置換する', function() {
+    expect(format('%d', 123)).toBe('123');
+  });
+
+  it('format("%d * %d * 1000 = %s")', function() {
+    expect(format('%d * %d * 1000 = %s', 2, 3, '6e+3')).toBe('2 * 3 * 1000 = 6e+3');
+  });
+
+  it('format(%j)は%jをJSON形式に整形して置換する', function() {
+    expect(format('%j', {array: [1,2,3]})).toBe(JSON.stringify({array: [1,2,3]}));
+  });
+
+  it('format(%j)は対象が循環参照を含む場合[Circular]となる', function() {
+    var circular = {a: 1, b: 2};
+    circular.ab = circular;
+    expect(format('%j', circular)).toBe('[Circular]');
+  });
+
+  it('formatは置換するプレースホルダーがないと単にスペースで結合する', function() {
+    expect(format(1,2,3)).toBe('1 2 3');
+  });
+
+  it('formatは置換引数が超過している場合、スペースで結合する', function() {
+    expect(format('trafic light: %s', 'red', 'yellow', 'blue')).toBe('trafic light: red yellow blue');
+  });
+
+  it('formatは置換引数が足りない場合置換しない', function() {
+    expect(format('trafic light: %s %s %s %s', 'red', 'yellow', 'blue')).toBe('trafic light: red yellow blue %s');
+  });
+});
+
+```
+
+配列の要素を空白で結合するconcat、%s, %d, %jに応じて整形をするformatWithを実装すれば、format関数は少しシンプルにできる。
+
+
+```js
+  function format(f) {
+    var formatRegExp = /%[sdj%]/g;
+    if (typeof f !== 'string') {
+      return concat(arguments);
+    }
+
+    var i = 1;
+    var args = arguments;
+    var len = args.length;
+    var str = String(f).replace(formatRegExp, function(x) {
+      if (x === '%%') return '%';
+      if (i >= len) return x;
+      return formatWith(x, args[i++]);
+    });
+    
+    if (i < len) {
+      str += ' ' + concat(Array.prototype.slice.call(args, i));
+    }
+
+    return str;
+  }
+
+```
+
+concatとformatWithはよくテストされているとしたら、format関数の確かめるべき振る舞いは減る。テストもシンプルになる。
+
+```js
+describe('format', function() {
+    it('format("%j * %d = %s")', function() {
+      expect(format('%j * %d = %s', {numer: 1, denom: 6}, 2, '1/3')).toBe('{"numer":1,"denom":6} * 2 = 1/3');
+    });
+  
+    it('formatは置換するプレースホルダーがないと単にスペースで結合する', function() {
+      expect(format(1,2,3)).toBe(concat([1,2,3]));
+    });
+  
+    it('formatは置換引数が超過している場合、スペースで結合する', function() {
+      expect(format('trafic light: %s', 'red', 'yellow', 'blue')).toBe('trafic light: red ' + concat(['yellow', 'blue']));
+    });
+  
+    it('formatは置換引数が足りない場合置換しない', function() {
+      expect(format('trafic light: %s %s %s %s', 'red', 'yellow', 'blue')).toBe('trafic light: red yellow blue %s');
+    });
+  });
+
+```
+
+テスト駆動開発ではプロダクションコードを書く前にテストを書く。いきなり複雑なテストは書きにくいから、自ずと機能と責任を分割するようになる。テストが設計を導くとはこういうことだね。
 
 
 ## このモジュール使いたいんだけど、他の処理と密結合してて使えないよ
 
-### 単体でテストしやすいように外部環境に依存させない
+### 08. 単体でテストしやすいように外部環境に依存させたり、副作用を生まないドメインを増やす
 
 Ajaxによる通信や、ストレージへのアクセス、DOMへのアクセスなどを内部で行っているモジュールは、再利用性が非常に悪い。そのモジュールはサーバーが提供するAPIやストレージ上の特定のデータ、特定のDOM要素にが存在することを前提にしており、それら外部の環境に強く依存している。そのためほぼ同じ処理にもかかわらず環境や要求が少し変わっただけでも、再利用できない問題を抱えている。
 
-このような設計に問題のあるモジュールは生まれやすい。なぜなら外部環境に依存させたほうが簡単に実装できるからね。
+さらにこれら外部環境の状態に変更を加えることもできる。この状態にアプリケーションが依存しすぎると、アプリケーションはとってもスケールしにくくなる。
+
+このような設計に問題のあるモジュールは生まれやすい。なぜなら外部環境に依存させたり副作用を発生させたほうが簡単に実装できるからね。
 
 でも外部環境に依存すると簡単にできないものがある。それはユニットテストだ。なぜなら外部環境を用意するのにたくさんのコードを書かないといけないからね。
 
-
+テスト駆動開発ではプロダクションコードを書く前にテストを書くから、自ずと外部環境への依存や副作用を減らすようになる。これもまたテストが設計を導く例だね。
 
 
 ## このモジュール修正しなきゃいけないけど、これ使ってるの結構あるんだよなー。影響範囲全部調べるのか．．．
+
 
 ### テストを書いてあれば、修正によってどこまで壊れたか分かる
 
